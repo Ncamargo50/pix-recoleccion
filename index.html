@@ -226,16 +226,17 @@
         </div>
 
         <div class="collect-form">
-            <!-- Barcode -->
+            <!-- Barcode / IBRA Megalab QR -->
             <div class="form-group">
-                <label class="form-label">Código de barras / QR</label>
+                <label class="form-label">Código de bolsa (QR IBRA Megalab)</label>
                 <div class="barcode-display" id="barcodeDisplay">
                     <span class="barcode-value" id="barcodeValue">Sin escanear</span>
                     <button class="barcode-btn" onclick="app.scanBarcode()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7z"/></svg>
-                        Escanear
+                        Escanear QR
                     </button>
                 </div>
+                <div class="ibra-details" id="ibraDetails" style="display:none"></div>
             </div>
 
             <!-- Depth -->

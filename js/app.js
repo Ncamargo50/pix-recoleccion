@@ -341,10 +341,12 @@ class PixApp {
     // Reset form
     document.getElementById('barcodeValue').textContent = 'Sin escanear';
     document.getElementById('barcodeDisplay').classList.remove('scanned');
+    const ibraDetailsEl = document.getElementById('ibraDetails');
+    if (ibraDetailsEl) ibraDetailsEl.style.display = 'none';
     document.getElementById('sampleNotes').value = '';
     document.getElementById('photoPreviewImg').style.display = 'none';
     document.getElementById('photoPlaceholder').style.display = 'flex';
-    this.collectForm = { barcode: null, photo: null };
+    this.collectForm = { barcode: null, photo: null, parsedIBRA: null };
 
     // Set default collector
     const collector = await pixDB.getSetting('collectorName');
@@ -358,16 +360,71 @@ class PixApp {
     document.getElementById('collectModal').classList.remove('active');
   }
 
-  // Scan barcode
+  // Scan barcode - with IBRA Megalab QR parsing
   async scanBarcode() {
     document.getElementById('scannerOverlay').classList.add('active');
     try {
       await barcodeScanner.init('scannerViewfinder', (code) => {
+        // Parse the scanned code (detect IBRA Megalab format)
+        const parsed = BarcodeScanner.parseIBRA(code);
         this.collectForm.barcode = code;
-        document.getElementById('barcodeValue').textContent = code;
-        document.getElementById('barcodeDisplay').classList.add('scanned');
+        this.collectForm.parsedIBRA = parsed;
+
+        // Update barcode display
+        const barcodeValue = document.getElementById('barcodeValue');
+        const barcodeDisplay = document.getElementById('barcodeDisplay');
+        barcodeDisplay.classList.add('scanned');
+
+        if (parsed.isIBRA && parsed.sampleId) {
+          // Show IBRA parsed info
+          barcodeValue.innerHTML = `
+            <span class="ibra-badge">IBRA</span> ${parsed.sampleId}
+          `;
+
+          // Show details below the barcode display
+          const detailsEl = document.getElementById('ibraDetails');
+          const summary = BarcodeScanner.formatIBRADisplay(parsed);
+          if (summary && detailsEl) {
+            detailsEl.textContent = summary;
+            detailsEl.style.display = 'block';
+          }
+
+          // Auto-fill depth if IBRA QR provides it
+          if (parsed.depth) {
+            const depthNorm = parsed.depth.replace(/\s/g, '');
+            const depthBtn = document.querySelector(`.depth-chip[data-depth="${depthNorm}"]`);
+            if (depthBtn) {
+              this.selectDepth(depthBtn, depthNorm);
+            }
+          }
+
+          // Auto-fill sample type if IBRA QR provides it
+          if (parsed.sampleType) {
+            const typeMap = {
+              'quimico': 'quimico', 'quimica': 'quimico', 'chemical': 'quimico',
+              'fertilidade': 'fertilidad', 'fertilidad': 'fertilidad',
+              'fisico': 'fisico', 'fisica': 'fisico', 'physical': 'fisico',
+              'micro': 'microbiologico', 'microbiologico': 'microbiologico',
+              'nematodo': 'nematodos', 'nematodos': 'nematodos', 'nematoide': 'nematodos',
+              'carbono': 'carbono', 'carbon': 'carbono',
+              'completo': 'completo', 'complete': 'completo'
+            };
+            const mapped = typeMap[parsed.sampleType.toLowerCase()] || null;
+            if (mapped) {
+              document.getElementById('sampleType').value = mapped;
+            }
+          }
+
+          this.toast(`IBRA Megalab: ${parsed.sampleId}`, 'success');
+        } else {
+          // Generic barcode/QR
+          barcodeValue.textContent = code;
+          const detailsEl = document.getElementById('ibraDetails');
+          if (detailsEl) detailsEl.style.display = 'none';
+          this.toast(`Código: ${code}`, 'success');
+        }
+
         this.closeScannerOverlay();
-        this.toast(`Código: ${code}`, 'success');
       });
     } catch (e) {
       this.toast('Error al iniciar cámara', 'error');
@@ -411,6 +468,9 @@ class PixApp {
     // Save collector name
     if (collector) await pixDB.setSetting('collectorName', collector);
 
+    // Build IBRA metadata if available
+    const ibraData = this.collectForm.parsedIBRA || null;
+
     const sample = {
       pointId: this.currentPoint.id,
       fieldId: this.currentField.id,
@@ -421,6 +481,10 @@ class PixApp {
       depth: depth,
       sampleType: sampleType,
       barcode: this.collectForm.barcode,
+      ibraSampleId: ibraData?.sampleId || null,
+      ibraLabOrder: ibraData?.labOrder || null,
+      ibraSource: ibraData?.source || null,
+      ibraRaw: ibraData?.raw || null,
       collector: collector,
       notes: notes,
       photo: this.collectForm.photo,
