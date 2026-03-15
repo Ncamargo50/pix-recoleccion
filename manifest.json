@@ -1,0 +1,22 @@
+{
+  "name": "PIX Recolección - Pixadvisor",
+  "short_name": "PIX Recolección",
+  "description": "App de recolección de muestras de suelo georreferenciadas - Pixadvisor Agricultura de Precisión",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0F1B2D",
+  "theme_color": "#7FD633",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
