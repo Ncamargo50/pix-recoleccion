@@ -1,4 +1,4 @@
-// GPS Navigation Module for Pixadvisor Coleta
+// GPS Navigation Module for PIX Muestreo v2.0
 class GPSNavigator {
   constructor() {
     this.watchId = null;
@@ -9,6 +9,62 @@ class GPSNavigator {
     this.onPositionUpdate = null;
     this.onDistanceUpdate = null;
     this.accuracy = null;
+
+    // Kalman filter state for position smoothing
+    this.kalman = { lat: null, lng: null, variance: 1, processNoise: 0.0001, initialized: false };
+
+    // GPS warm-up detection
+    this.warmupReadings = [];
+    this.isWarmedUp = false;
+    this.warmupThreshold = 5; // need 5 readings under 10m accuracy
+
+    // Position stabilization detection
+    this.recentPositions = []; // last 10 positions
+    this.isStabilized = false;
+
+    // Wake Lock for background GPS (prevents screen/CPU sleep)
+    this._wakeLock = null;
+    this._webLock = null;
+  }
+
+  // Request Wake Lock to keep GPS active with screen off
+  async requestWakeLock() {
+    // Screen Wake Lock API
+    if ('wakeLock' in navigator) {
+      try {
+        this._wakeLock = await navigator.wakeLock.request('screen');
+        this._wakeLock.addEventListener('release', () => {
+          console.log('[GPS] Wake lock released');
+          // Re-acquire on visibility change
+          if (this.isTracking) this._reacquireWakeLock();
+        });
+        console.log('[GPS] Wake lock acquired');
+      } catch (e) { console.log('[GPS] Wake lock failed:', e.message); }
+    }
+    // Web Locks API (keeps service worker alive)
+    if ('locks' in navigator) {
+      try {
+        navigator.locks.request('pix-gps-tracking', { mode: 'exclusive' }, () => {
+          return new Promise(resolve => { this._webLock = resolve; });
+        });
+        console.log('[GPS] Web lock acquired');
+      } catch (e) { console.log('[GPS] Web lock failed:', e.message); }
+    }
+  }
+
+  async _reacquireWakeLock() {
+    if (document.visibilityState === 'visible' && this.isTracking) {
+      try {
+        this._wakeLock = await navigator.wakeLock.request('screen');
+        console.log('[GPS] Wake lock re-acquired');
+      } catch (e) { /* silently fail */ }
+    }
+  }
+
+  releaseWakeLock() {
+    if (this._wakeLock) { try { this._wakeLock.release(); } catch(e){} this._wakeLock = null; }
+    if (this._webLock) { this._webLock(); this._webLock = null; }
+    console.log('[GPS] All locks released');
   }
 
   // Start watching position
@@ -19,21 +75,40 @@ class GPSNavigator {
 
     this.onPositionUpdate = callback;
 
+    // Re-acquire wake lock when app comes back to foreground
+    document.addEventListener('visibilitychange', () => this._reacquireWakeLock());
+
     this.watchId = navigator.geolocation.watchPosition(
       pos => {
+        // Check GPS warm-up status
+        this._checkWarmup(pos.coords.accuracy);
+
+        // Apply Kalman filter for position smoothing
+        const smoothed = this._kalmanUpdate(
+          { lat: pos.coords.latitude, lng: pos.coords.longitude },
+          pos.coords.accuracy
+        );
+
         this.currentPosition = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
+          lat: smoothed.lat,
+          lng: smoothed.lng,
+          accuracy: pos.coords.accuracy, // keep raw accuracy for display
           altitude: pos.coords.altitude,
           speed: pos.coords.speed,
           heading: pos.coords.heading,
-          timestamp: pos.timestamp
+          timestamp: pos.timestamp,
+          raw: { lat: pos.coords.latitude, lng: pos.coords.longitude }
         };
         this.accuracy = pos.coords.accuracy;
 
-        // Record track
+        // Check position stabilization using RAW (unfiltered) positions
+        this._checkStabilization(pos.coords.latitude, pos.coords.longitude);
+
+        // Record track (circular buffer, max 10000 positions to prevent memory growth)
         if (this.isTracking) {
+          if (this.trackPositions.length >= 10000) {
+            this.trackPositions.shift();
+          }
           this.trackPositions.push({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
@@ -67,8 +142,8 @@ class GPSNavigator {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 2000,
-        timeout: 10000
+        maximumAge: 0,       // Force fresh readings for max precision
+        timeout: 15000       // More time for better fix
       }
     );
   }
@@ -228,13 +303,29 @@ class GPSNavigator {
             navigator.geolocation.clearWatch(watchId);
             clearTimeout(timeoutId);
 
+            // ── Outlier rejection: reject readings >2 std deviations from median ──
+            const sortedLats = readings.map(r => r.lat).sort((a, b) => a - b);
+            const sortedLngs = readings.map(r => r.lng).sort((a, b) => a - b);
+            const medianLat = sortedLats[Math.floor(sortedLats.length / 2)];
+            const medianLng = sortedLngs[Math.floor(sortedLngs.length / 2)];
+
+            // Compute distances from median and standard deviation
+            const distsFromMedian = readings.map(r => this.distanceTo(medianLat, medianLng, r.lat, r.lng));
+            const meanDist = distsFromMedian.reduce((s, d) => s + d, 0) / distsFromMedian.length;
+            const distStdDev = Math.sqrt(distsFromMedian.reduce((s, d) => s + (d - meanDist) ** 2, 0) / distsFromMedian.length);
+            const outlierThreshold = meanDist + 2 * distStdDev;
+
+            // Filter out outliers (keep at least 3 readings)
+            let filtered = readings.filter((r, i) => distsFromMedian[i] <= outlierThreshold);
+            if (filtered.length < 3) filtered = readings; // fallback if too aggressive
+
             // Calcular promedio ponderado por inverso de accuracy
             // (lecturas más precisas pesan más)
             let totalWeight = 0;
             let wLat = 0, wLng = 0, wAlt = 0;
             let bestAcc = Infinity;
 
-            for (const r of readings) {
+            for (const r of filtered) {
               const weight = 1 / (r.accuracy * r.accuracy); // peso cuadrático inverso
               totalWeight += weight;
               wLat += r.lat * weight;
@@ -247,17 +338,17 @@ class GPSNavigator {
             const avgLng = wLng / totalWeight;
             const avgAlt = wAlt / totalWeight;
 
-            // Calcular dispersión real de las lecturas (desvío estándar en metros)
+            // Calcular dispersión real de las lecturas filtradas (desvío estándar en metros)
             let sumSqDist = 0;
-            for (const r of readings) {
+            for (const r of filtered) {
               const d = this.distanceTo(avgLat, avgLng, r.lat, r.lng);
               sumSqDist += d * d;
             }
-            const stdDev = Math.sqrt(sumSqDist / readings.length);
+            const stdDev = Math.sqrt(sumSqDist / filtered.length);
 
             // Precisión estimada: mejor entre el desvío y la mejor accuracy reportada
             const estimatedAccuracy = Math.min(stdDev, bestAcc);
-            const avgReportedAcc = readings.reduce((s, r) => s + r.accuracy, 0) / readings.length;
+            const avgReportedAcc = filtered.reduce((s, r) => s + r.accuracy, 0) / filtered.length;
 
             resolve({
               lat: avgLat,
@@ -268,6 +359,8 @@ class GPSNavigator {
               bestAccuracy: Math.round(bestAcc * 100) / 100,
               stdDevMeters: Math.round(stdDev * 100) / 100,
               samples: readings.length,
+              samplesUsed: filtered.length,
+              outliersRejected: readings.length - filtered.length,
               durationMs: readings[readings.length - 1].timestamp - readings[0].timestamp
             });
           }
@@ -296,7 +389,7 @@ class GPSNavigator {
         {
           enableHighAccuracy: true,
           maximumAge: 0,       // Forzar lecturas frescas
-          timeout: 10000
+          timeout: 15000       // Más tiempo para mejor fix
         }
       );
 
@@ -342,6 +435,149 @@ class GPSNavigator {
     if (this.accuracy <= 10) return 50;
     if (this.accuracy <= 20) return 25;
     return 10;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // KALMAN FILTER - Suavizado de posición en tiempo real
+  // ═══════════════════════════════════════════════════════════
+
+  /**
+   * Aplica un filtro Kalman simplificado a una lectura GPS.
+   * Suaviza el ruido de posición manteniendo respuesta rápida a movimientos reales.
+   *
+   * @param {{lat: number, lng: number}} measurement - Posición medida
+   * @param {number} accuracy - Precisión reportada en metros
+   * @returns {{lat: number, lng: number, accuracy: number}} Posición suavizada
+   */
+  _kalmanUpdate(measurement, accuracy) {
+    if (!this.kalman.initialized) {
+      this.kalman.lat = measurement.lat;
+      this.kalman.lng = measurement.lng;
+      this.kalman.variance = accuracy * accuracy;
+      this.kalman.initialized = true;
+      return { lat: measurement.lat, lng: measurement.lng, accuracy: accuracy };
+    }
+
+    // Predict step: variance increases with process noise
+    this.kalman.variance += this.kalman.processNoise;
+
+    // Update step: compute Kalman gain
+    const measurementVariance = accuracy * accuracy;
+    const kalmanGain = this.kalman.variance / (this.kalman.variance + measurementVariance);
+
+    // Update estimate
+    this.kalman.lat += kalmanGain * (measurement.lat - this.kalman.lat);
+    this.kalman.lng += kalmanGain * (measurement.lng - this.kalman.lng);
+    this.kalman.variance *= (1 - kalmanGain);
+
+    return {
+      lat: this.kalman.lat,
+      lng: this.kalman.lng,
+      accuracy: Math.sqrt(this.kalman.variance)
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // GPS WARM-UP DETECTION - Detecta cuando el GPS se estabiliza
+  // ═══════════════════════════════════════════════════════════
+
+  /**
+   * Verifica si el GPS ya pasó el período de calentamiento.
+   * El GPS necesita varias lecturas buenas consecutivas antes de ser confiable.
+   *
+   * @param {number} accuracy - Precisión de la lectura actual en metros
+   */
+  _checkWarmup(accuracy) {
+    this.warmupReadings.push(accuracy);
+
+    // Mantener solo las últimas 10 lecturas
+    if (this.warmupReadings.length > 10) {
+      this.warmupReadings.shift();
+    }
+
+    // Si las últimas 5 lecturas son todas < 10m → GPS calentado
+    if (this.warmupReadings.length >= this.warmupThreshold) {
+      const lastN = this.warmupReadings.slice(-this.warmupThreshold);
+      this.isWarmedUp = lastN.every(a => a < 10);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // POSITION STABILIZATION - Detecta posición estable
+  // ═══════════════════════════════════════════════════════════
+
+  /**
+   * Verifica si la posición GPS se ha estabilizado.
+   * Las últimas 5 posiciones deben estar dentro de 2m entre sí.
+   */
+  _checkStabilization(rawLat, rawLng) {
+    if (rawLat == null || rawLng == null) return;
+
+    this.recentPositions.push({
+      lat: rawLat,
+      lng: rawLng,
+      timestamp: Date.now()
+    });
+
+    // Mantener solo las últimas 10 posiciones
+    if (this.recentPositions.length > 10) {
+      this.recentPositions.shift();
+    }
+
+    // Verificar si las últimas 5 están dentro de 2m
+    if (this.recentPositions.length >= 5) {
+      const last5 = this.recentPositions.slice(-5);
+      let maxSpread = 0;
+      for (let i = 0; i < last5.length; i++) {
+        for (let j = i + 1; j < last5.length; j++) {
+          const d = this.distanceTo(last5[i].lat, last5[i].lng, last5[j].lat, last5[j].lng);
+          if (d > maxSpread) maxSpread = d;
+        }
+      }
+      this.isStabilized = maxSpread <= 2;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ACCURACY GATE - Control de calidad para recolección
+  // ═══════════════════════════════════════════════════════════
+
+  /**
+   * Verifica si las condiciones GPS son suficientes para recolectar datos.
+   *
+   * @param {number} requiredAccuracy - Precisión mínima requerida en metros (default 5)
+   * @returns {boolean} true si se puede recolectar
+   */
+  canCollect(requiredAccuracy = 5) {
+    return this.isWarmedUp && this.accuracy !== null && this.accuracy <= requiredAccuracy;
+  }
+
+  /**
+   * Devuelve el estado actual para recolección con mensaje y color.
+   *
+   * @param {number} requiredAccuracy - Precisión mínima requerida en metros (default 5)
+   * @returns {{ok: boolean, msg: string, color: string}}
+   */
+  getCollectionStatus(requiredAccuracy = 5) {
+    if (!this.accuracy) return { ok: false, msg: 'Sin señal GPS', color: '#F44336' };
+    if (!this.isWarmedUp) return { ok: false, msg: 'GPS calentando...', color: '#FF9800' };
+    if (this.accuracy > requiredAccuracy) return { ok: false, msg: `Precisión insuficiente (${this.accuracy.toFixed(1)}m > ${requiredAccuracy}m)`, color: '#FF9800' };
+    return { ok: true, msg: `Listo (${this.accuracy.toFixed(1)}m)`, color: '#4CAF50' };
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // HDOP ESTIMATION - Estimación de HDOP desde accuracy
+  // ═══════════════════════════════════════════════════════════
+
+  /**
+   * Estima el HDOP (Horizontal Dilution of Precision) a partir de la precisión reportada.
+   * La API web no expone HDOP directamente, pero accuracy ≈ HDOP * UERE (5m típico).
+   *
+   * @returns {number|null} HDOP estimado, o null si no hay señal
+   */
+  getEstimatedHDOP() {
+    if (!this.accuracy) return null;
+    return Math.round(this.accuracy / 5 * 10) / 10;
   }
 }
 

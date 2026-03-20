@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0F1B2D">
-    <title>PIX Recolección - Pixadvisor</title>
+    <title>PIX Muestreo - Pixadvisor</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -16,12 +16,110 @@
     <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay" class="login-overlay">
+    <!-- Subtle animated background -->
+    <div class="login-bg">
+        <div class="login-bg-gradient"></div>
+        <div class="login-bg-grid"></div>
+    </div>
+
+    <!-- Centered content -->
+    <div class="login-content">
+        <!-- Logo section - DataFarm style: big icon centered -->
+        <div class="login-logo-section">
+            <div class="login-logo-glow"></div>
+            <img src="icons/icon-192.png" alt="PIX" class="login-logo">
+        </div>
+
+        <!-- Brand name with separator -->
+        <h1 class="login-brand">PIX Muestreo</h1>
+        <div class="login-divider"></div>
+        <p class="login-tagline">AGRICULTURA DE PRECISION</p>
+
+        <!-- Login form -->
+        <div class="login-form">
+            <div class="login-input-group">
+                <svg class="login-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <input type="text" id="loginUser" class="login-input" placeholder="Usuario" value="admin" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+            </div>
+            <div class="login-input-group">
+                <svg class="login-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                <input type="password" id="loginPass" class="login-input" placeholder="Clave de acceso" onkeydown="if(event.key==='Enter')pixLogin()">
+            </div>
+            <div id="loginError" class="login-error">Usuario o clave incorrecta</div>
+            <button onclick="pixLogin()" class="login-btn">INGRESAR</button>
+        </div>
+
+        <!-- Footer -->
+        <div class="login-footer">
+            <span class="login-footer-dot"></span>
+            <span>pixadvisor.network</span>
+        </div>
+    </div>
+</div>
+
+<!-- INSTALL SCREEN (shown after login, before app) -->
+<div id="installOverlay" class="install-overlay">
+    <div class="install-bg">
+        <div class="login-bg-gradient"></div>
+        <div class="login-bg-grid"></div>
+    </div>
+    <div class="install-content">
+        <div class="install-header">
+            <div class="login-logo-glow"></div>
+            <img src="icons/icon-192.png" alt="PIX" class="install-logo">
+            <h2 class="install-title">Instalar PIX Muestreo</h2>
+            <p class="install-desc">Instalá la app para trabajar 100% offline en campo</p>
+        </div>
+
+        <!-- Auto install button -->
+        <button id="autoInstallBtn" onclick="pixInstall()" class="install-auto-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            DESCARGAR APP
+        </button>
+
+        <!-- Instructions cards -->
+        <div class="install-cards">
+            <div class="install-card install-card-android">
+                <div class="install-card-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+                    <span>Android (Chrome)</span>
+                </div>
+                <div class="install-steps">
+                    <div class="install-step"><span class="step-num">1</span>Tocá los <strong>3 puntos</strong> arriba a la derecha</div>
+                    <div class="install-step"><span class="step-num">2</span>Seleccioná <strong>"Instalar aplicación"</strong></div>
+                    <div class="install-step"><span class="step-num">3</span>Confirmá tocando <strong>"Instalar"</strong></div>
+                </div>
+            </div>
+            <div class="install-card install-card-ios">
+                <div class="install-card-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+                    <span>iPhone (Safari)</span>
+                </div>
+                <div class="install-steps">
+                    <div class="install-step"><span class="step-num">1</span>Tocá el botón <strong>Compartir</strong> abajo</div>
+                    <div class="install-step"><span class="step-num">2</span>Buscá <strong>"Agregar a inicio"</strong></div>
+                    <div class="install-step"><span class="step-num">3</span>Tocá <strong>"Agregar"</strong></div>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="skipInstall()" class="install-skip-btn">
+            Continuar sin instalar
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+        <p class="install-note">Una vez instalada, funciona sin internet</p>
+    </div>
+</div>
+
 <div class="app-container">
     <!-- ===== HEADER ===== -->
     <header class="app-header">
         <div class="logo">
             <img src="icons/icon-192.png" alt="PIX" onerror="this.style.background='var(--teal)';this.style.display='block'">
-            <h1>PIX Recolección <small>Agricultura de Precisión</small></h1>
+            <h1>PIX Muestreo <small>Agricultura de Precisión</small></h1>
         </div>
         <div class="header-actions">
             <span id="connectionDot" class="status-dot offline"></span>
@@ -48,6 +146,12 @@
                     <button class="fab-btn secondary" onclick="app.nextPoint()" title="Siguiente punto">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                     </button>
+                    <button class="fab-btn secondary" onclick="app.downloadTilesOffline()" title="Descargar mapa offline" id="btnDownloadTiles">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </button>
+                    <button class="fab-btn secondary" onclick="app.startBoundaryTrace()" title="Contornar talhão (mapear perímetro GPS)" id="boundaryBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3,6 9,3 15,6 21,3 21,18 15,21 9,18 3,21"/></svg>
+                    </button>
                 </div>
 
                 <!-- Navigation Panel -->
@@ -60,6 +164,13 @@
                                 <div class="nav-target-name" id="navTargetName">Seleccioná un punto</div>
                                 <div class="nav-direction" id="navDirection"></div>
                                 <div class="nav-accuracy" id="navAccuracy">GPS: buscando...</div>
+                                <div class="gps-quality-bar" id="gpsQualityBar">
+                                    <div class="gps-quality-fill" id="gpsQualityFill" style="width:0%"></div>
+                                </div>
+                                <div class="gps-status-row" id="gpsStatusRow" style="display:none">
+                                    <span class="gps-status-dot" id="gpsStatusDot"></span>
+                                    <span class="gps-status-text" id="gpsStatusText">Calentando...</span>
+                                </div>
                             </div>
                         </div>
                         <div class="map-action-bar">
@@ -86,6 +197,9 @@
                         Proyectos
                     </div>
                     <div style="display:flex;gap:8px">
+                        <button class="fab-btn secondary" style="width:36px;height:36px;background:rgba(127,214,51,0.15);border-color:rgba(127,214,51,0.3);color:#7FD633" onclick="app.importServiceOrderFromFile()" title="Importar Orden de Servicio">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg>
+                        </button>
                         <button class="fab-btn secondary" style="width:36px;height:36px" onclick="app.importLocalFile()" title="Importar archivo local">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
                         </button>
@@ -135,6 +249,30 @@
                     Descargar Backup Local
                 </button>
 
+                <!-- Export formats -->
+                <div class="section-title" style="margin-top:24px;font-size:14px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+                    Exportar campo actual
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+                    <button class="sync-btn" style="background:var(--dark-3);padding:12px;font-size:13px" onclick="app.exportFieldAs('geojson')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>
+                        GeoJSON
+                    </button>
+                    <button class="sync-btn" style="background:var(--dark-3);padding:12px;font-size:13px" onclick="app.exportFieldAs('kml')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
+                        KML
+                    </button>
+                    <button class="sync-btn" style="background:var(--dark-3);padding:12px;font-size:13px" onclick="app.exportFieldAs('csv')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+                        CSV
+                    </button>
+                    <button class="sync-btn" style="background:var(--dark-3);padding:12px;font-size:13px" onclick="app.exportFieldAs('shapefile')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+                        Shapefile
+                    </button>
+                </div>
+
                 <div class="section-title" style="margin-top:24px;font-size:14px">Registro de actividad</div>
                 <div class="sync-log" id="syncLog">
                     <div class="sync-log-entry"><span class="time">—</span>Esperando primera sincronización...</div>
@@ -171,14 +309,94 @@
                     </p>
                 </div>
 
+                <div class="form-group" style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)">
+                    <div class="section-title" style="font-size:14px;margin-bottom:12px">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+                        Precisión GPS
+                    </div>
+                    <label class="form-label">Precisión mínima para recolección</label>
+                    <select class="form-input" id="gpsMinAccuracy" onchange="app.saveGPSSetting('minAccuracy', this.value)">
+                        <option value="3">3m (Ultra preciso - lento)</option>
+                        <option value="5" selected>5m (Recomendado)</option>
+                        <option value="10">10m (Rápido)</option>
+                        <option value="20">20m (Baja precisión)</option>
+                    </select>
+                    <label class="form-label" style="margin-top:12px">Muestras para promediado</label>
+                    <select class="form-input" id="gpsAvgSamples" onchange="app.saveGPSSetting('avgSamples', this.value)">
+                        <option value="5">5 lecturas (rápido)</option>
+                        <option value="10" selected>10 lecturas (estándar)</option>
+                        <option value="20">20 lecturas (alta precisión)</option>
+                        <option value="30">30 lecturas (máxima precisión)</option>
+                    </select>
+                    <label class="form-label" style="margin-top:12px">Filtro Kalman</label>
+                    <select class="form-input" id="gpsKalmanEnabled" onchange="app.saveGPSSetting('kalmanEnabled', this.value)">
+                        <option value="1" selected>Activado (suaviza posición)</option>
+                        <option value="0">Desactivado (posición cruda)</option>
+                    </select>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:8px;padding:8px;background:var(--dark-2);border-radius:6px">
+                        El filtro Kalman suaviza las lecturas GPS en tiempo real, reduciendo el ruido de la señal. El promediado se aplica solo al momento de recolectar la muestra para máxima precisión.
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)">
+                    <div class="section-title" style="font-size:14px;margin-bottom:12px">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
+                        Mapa Offline
+                    </div>
+                    <div id="tileCacheStats" style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Cache: calculando...</div>
+                    <button class="sync-btn" style="background:var(--dark-3);margin-bottom:8px" onclick="app.downloadTilesOffline()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Descargar Mapa del Campo Actual
+                    </button>
+                    <button class="sync-btn" style="background:rgba(239,68,68,0.15);color:var(--danger)" onclick="app.clearTileCache()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        Limpiar Cache de Tiles
+                    </button>
+                    <div id="tileDownloadProgress" style="display:none;margin-top:10px">
+                        <div class="gps-quality-bar" style="height:6px;margin-bottom:4px">
+                            <div class="gps-quality-fill" id="tileProgressFill" style="width:0%;background:var(--teal)"></div>
+                        </div>
+                        <div id="tileProgressText" style="font-size:11px;color:var(--text-muted)">Descargando tiles...</div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)">
+                    <div class="section-title" style="font-size:14px;margin-bottom:12px">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                        Interfaz
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                        <button class="sync-btn" style="background:var(--dark-3);padding:10px;font-size:12px" onclick="app.toggleTheme()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                            Claro / Oscuro
+                        </button>
+                        <button class="sync-btn" style="background:var(--dark-3);padding:10px;font-size:12px" onclick="app.showDashboard()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+                            Dashboard
+                        </button>
+                        <button class="sync-btn" style="background:var(--dark-3);padding:10px;font-size:12px" onclick="app.connectExternalGPS()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M6.5 6.5h11v11h-11z"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+                            GPS Bluetooth
+                        </button>
+                        <button class="sync-btn" style="background:var(--dark-3);padding:10px;font-size:12px" onclick="app.shareFieldPlan()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                            Compartir Campo
+                        </button>
+                    </div>
+                    <button class="sync-btn" style="background:var(--dark-3);margin-top:8px;padding:10px;font-size:12px" onclick="app.requestNotificationPermission().then(ok=>app.toast(ok?'Notificaciones activadas':'Notificaciones denegadas',ok?'success':'warning'))">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                        Activar Notificaciones Push
+                    </button>
+                </div>
+
                 <div style="margin-top:32px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)">
                     <div class="section-title" style="font-size:14px">Acerca de</div>
                     <div style="text-align:center;padding:16px">
                         <img src="icons/icon-192.png" alt="Pixadvisor" style="width:80px;height:80px;border-radius:16px;filter:drop-shadow(0 0 16px rgba(127,214,51,0.3));margin-bottom:12px">
-                        <div style="font-size:24px;font-weight:700;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent">PIX Recolección</div>
-                        <div style="font-size:13px;color:var(--text-muted);margin-top:4px">v1.0.0 · Pixadvisor Agricultura de Precisión</div>
+                        <div style="font-size:24px;font-weight:700;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent">PIX Muestreo</div>
+                        <div style="font-size:13px;color:var(--text-muted);margin-top:4px">v3.0.0 · Pixadvisor Agricultura de Precisión</div>
                         <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
-                            App de recolección de muestras de suelo georreferenciadas.<br>
+                            App de muestreo de suelo georreferenciado.<br>
                             Funciona 100% offline en campo.
                         </div>
                         <div style="margin-top:16px">
@@ -215,6 +433,8 @@
 <div class="modal-overlay" id="collectModal">
     <div class="modal-sheet">
         <div class="modal-handle"></div>
+        <!-- Mini-map showing current position -->
+        <div class="collect-minimap" id="collectMinimap"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
             <div>
                 <div class="modal-title" id="collectPointName">Punto —</div>
@@ -309,7 +529,7 @@
             </button>
         </div>
         <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
-            Archivos en la carpeta <strong>"PIX Recolección"</strong> de Google Drive
+            Archivos en la carpeta <strong>"PIX Muestreo"</strong> de Google Drive
         </p>
         <div id="importFileList"></div>
     </div>
@@ -330,11 +550,14 @@
 <!-- Scripts -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="js/utils.js"></script>
 <script src="js/db.js"></script>
 <script src="js/drive.js"></script>
 <script src="js/gps.js"></script>
 <script src="js/scanner.js"></script>
 <script src="js/map.js"></script>
+<script src="js/sync.js"></script>
 <script src="js/app.js"></script>
+<script src="js/agent-field.js"></script>
 </body>
 </html>
